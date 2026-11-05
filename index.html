@@ -1,0 +1,384 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>植入传感器三维坐标系</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;900&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* Layout: big serif headline band, then a wide 3D stage beside a control column; stacks on phones */
+:root {
+  --bg: #eef1ee;
+  --surface: #ffffff;
+  --ink: #17201c;
+  --muted: #56625c;
+  --chip: #dfe5e0;
+  --accent: #1f6b4a;
+  --grid: #c9d1cb;
+  --c-degr: #27ae60;
+  --c-semi: #e67e22;
+  --c-perm: #2980b9;
+  --c-ref: #34495e;
+  --display: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  --body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121815; --surface: #1b231f; --ink: #e8efe9; --muted: #9fb0a6; --chip: #26302b;
+    --accent: #5fcf98; --grid: #34413a;
+    --c-degr: #3ccf7c; --c-semi: #f0954a; --c-perm: #4ea3e0; --c-ref: #9aaabb;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121815; --surface: #1b231f; --ink: #e8efe9; --muted: #9fb0a6; --chip: #26302b;
+  --accent: #5fcf98; --grid: #34413a;
+  --c-degr: #3ccf7c; --c-semi: #f0954a; --c-perm: #4ea3e0; --c-ref: #9aaabb;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--body);
+  font-size: 18px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 40px;
+}
+.wrap { max-width: 1500px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 40px; }
+h1 {
+  font-family: var(--display); font-weight: 900; margin: 0;
+  font-size: clamp(34px, 5vw, 60px); line-height: 1.15; letter-spacing: 0.02em; text-wrap: balance;
+}
+.lede { margin: 0; max-width: 34em; color: var(--muted); font-size: 19px; }
+.lede b { color: var(--ink); font-weight: 700; }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; }
+@media (max-width: 980px) { .main { grid-template-columns: minmax(0, 1fr); } }
+/* Desktop: one fixed screen, no page scrolling; the plot takes all remaining height */
+@media (min-width: 981px) {
+  html, body { height: 100%; }
+  body { overflow: hidden; padding-block: 20px; }
+  .wrap { height: 100%; max-width: none; gap: 18px; }
+  header { flex: none; flex-wrap: nowrap; align-items: center; }
+  h1 { font-size: clamp(34px, 2.6vw, 50px); white-space: nowrap; }
+  h1 br { display: none; }
+  .lede { font-size: 18px; max-width: 40em; }
+  .main { flex: 1 1 0; min-height: 0; grid-template-columns: minmax(0, 1fr) 440px; align-items: stretch; }
+  .stage { display: flex; flex-direction: column; min-height: 0; }
+  #plot { flex: 1 1 0; height: auto; min-height: 0; }
+  .views { flex: none; }
+  aside { min-height: 0; gap: 16px; }
+  aside .panel { padding: 18px 20px 20px; gap: 12px; }
+  .cats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cat { font-size: 16px; padding: 9px 12px; }
+  #detail { flex: none; }
+  aside > .panel:last-child { flex: 1 1 0; min-height: 0; }
+  .list { max-height: none; flex: 1 1 0; min-height: 0; }
+}
+.stage { background: var(--surface); border-radius: 20px; min-width: 0; position: relative; }
+#plot { width: 100%; height: min(78vh, 820px); min-height: 460px; }
+.views { display: flex; flex-wrap: wrap; gap: 10px; padding: 14px 18px 18px; }
+button {
+  font: inherit; font-size: 16px; font-weight: 500; color: var(--ink);
+  background: var(--chip); border: 0; border-radius: 999px; padding: 8px 18px; cursor: pointer;
+}
+button:hover { background: color-mix(in srgb, var(--accent) 18%, var(--chip)); }
+button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+aside { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.panel { background: var(--surface); border-radius: 20px; padding: 22px 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 24px; margin: 0; line-height: 1.3; }
+.cats { display: flex; flex-direction: column; gap: 8px; }
+.cat {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  border-radius: 14px; padding: 10px 14px; font-size: 18px;
+}
+.cat .dot { width: 16px; height: 16px; border-radius: 50%; flex: none; }
+.cat .n { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cat[aria-pressed="false"] { opacity: .45; }
+.cat[aria-pressed="true"] { background: var(--chip); color: var(--ink); }
+.cat[aria-pressed="true"]:hover { background: color-mix(in srgb, var(--accent) 14%, var(--chip)); }
+#detail .name { font-family: var(--display); font-weight: 900; font-size: 26px; line-height: 1.3; margin: 0; text-wrap: balance; }
+#detail .kind { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; color: var(--muted); }
+.scores { display: flex; flex-direction: column; gap: 12px; margin: 4px 0 0; }
+.score { display: grid; grid-template-columns: 5.5em minmax(0, 1fr); gap: 4px 12px; align-items: center; }
+.score dt { font-weight: 700; font-size: 17px; }
+.score dd { margin: 0; font-size: 17px; }
+.bar { grid-column: 2; display: flex; gap: 4px; }
+.bar i { height: 8px; flex: 1; border-radius: 4px; background: var(--chip); }
+.bar i.on { background: var(--accent); }
+.hint { color: var(--muted); font-size: 16px; margin: 0; }
+.list { display: flex; flex-direction: column; gap: 4px; max-height: 420px; overflow-y: auto; margin: 0 -8px; padding: 0 8px; }
+.item {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: transparent; border-radius: 12px; padding: 8px 12px; font-size: 17px; line-height: 1.4;
+}
+.item .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.item .xyz { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 15px; flex: none; }
+.item[aria-current="true"] { background: var(--chip); font-weight: 700; }
+.item[hidden] { display: none !important; }
+.note { color: var(--muted); font-size: 16px; margin: 0; max-width: 60em; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>生物医学植入传感器<br>三维评价坐标系</h1>
+    <p class="lede">以<b>可植入性</b>、<b>可降解性</b>、<b>可取出性</b>三个维度，比较 13 种植入传感器与参考器件。拖动旋转，滚轮缩放，点击任意点查看评分。</p>
+  </header>
+
+  <div class="main">
+    <section class="stage" aria-label="三维散点图">
+      <div id="plot"></div>
+      <div class="views" role="group" aria-label="视角">
+        <button id="v-default" data-view="default" aria-pressed="true">默认视角</button>
+        <button id="v-xy" data-view="xy" aria-pressed="false">俯视 · 植入 × 降解</button>
+        <button id="v-xz" data-view="xz" aria-pressed="false">正视 · 植入 × 取出</button>
+        <button id="v-yz" data-view="yz" aria-pressed="false">侧视 · 降解 × 取出</button>
+        <button id="t-labels" aria-pressed="true">显示名称</button>
+        <button id="t-spin" aria-pressed="false">自动旋转</button>
+      </div>
+    </section>
+
+    <aside>
+      <div class="panel">
+        <h2>器件类别</h2>
+        <div class="cats" id="cats"></div>
+      </div>
+      <div class="panel" id="detail" aria-live="polite"></div>
+      <div class="panel">
+        <h2>全部器件</h2>
+        <div class="list" id="list"></div>
+      </div>
+    </aside>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<script>
+const AX = {
+  X: { title: "可植入性", ticks: ["体表附着", "皮下", "深部软组织", "腔体/颅腔封闭空间"] },
+  Y: { title: "可降解性", ticks: ["完全不可降解", "部分可降解", "完全可降解"] },
+  Z: { title: "可取出性", ticks: ["开刀取出", "微创取出", "自然降解消失/消化道排出"] }
+};
+const CATS = [
+  { key: "degr", label: "可降解生物传感器", token: "--c-degr" },
+  { key: "semi", label: "半植入式传感器", token: "--c-semi" },
+  { key: "perm", label: "永久植入传感器", token: "--c-perm" },
+  { key: "ref",  label: "参考材料/器件", token: "--c-ref" }
+];
+const DATA = [
+  ["UConn可降解压力传感器(PNAS2024)", 4, 3, 3, "degr"],
+  ["丝素蛋白基无线颅内压传感", 4, 3, 3, "degr"],
+  ["可吸收临时心脏起搏器(Nature2021)", 3, 3, 3, "degr"],
+  ["宾州州立SiO₂/ZnO 40天器件", 3, 3, 2, "degr"],
+  ["Eversense CGM", 2, 2, 2, "semi"],
+  ["微针血糖传感", 2, 2, 2, "semi"],
+  ["超声血压贴片", 1, 2, 2, "semi"],
+  ["传统心脏起搏器传感单元", 3, 1, 1, "perm"],
+  ["Neuralink N1颅内电极", 4, 1, 1, "perm"],
+  ["人工晶体植入眼压传感器IOP-IOL", 4, 1, 1, "perm"],
+  ["钛合金电极", 3, 1, 1, "ref"],
+  ["PLA可吸收缝合传感纤维", 2, 3, 3, "degr"],
+  ["PDMS体表柔性传感贴片", 1, 1, 2, "ref"]
+].map(([name, x, y, z, cat], i) => ({ i, name, x, y, z, cat }));
+
+// shorter two-line labels for the 3D view, so neighbouring names take less width
+const LABELS = {
+  "UConn可降解压力传感器(PNAS2024)": "UConn可降解压力传感器<br>(PNAS 2024)",
+  "丝素蛋白基无线颅内压传感": "丝素蛋白基<br>无线颅内压传感",
+  "可吸收临时心脏起搏器(Nature2021)": "可吸收临时心脏起搏器<br>(Nature 2021)",
+  "宾州州立SiO₂/ZnO 40天器件": "宾州州立SiO₂/ZnO<br>40天器件",
+  "传统心脏起搏器传感单元": "传统心脏起搏器<br>传感单元",
+  "Neuralink N1颅内电极": "Neuralink N1<br>颅内电极",
+  "人工晶体植入眼压传感器IOP-IOL": "人工晶体眼压传感器<br>IOP-IOL",
+  "PLA可吸收缝合传感纤维": "PLA可吸收<br>缝合传感纤维",
+  "PDMS体表柔性传感贴片": "PDMS体表<br>柔性传感贴片"
+};
+DATA.forEach(d => { d.label = LABELS[d.name] || d.name; });
+
+// spread devices that share a coordinate
+const groups = {};
+DATA.forEach(d => (groups[[d.x, d.y, d.z]] ||= []).push(d));
+Object.values(groups).forEach(g => {
+  g.forEach((d, k) => {
+    // stack coincident devices vertically: upper one labels above, lower one labels below
+    const off = g.length === 1 ? 0 : (k === 0 ? 0.2 : -0.2);
+    d.px = d.x; d.py = d.y; d.pz = d.z + off;
+    d.tp = off < 0 ? "bottom center" : "top center";
+  });
+});
+
+const state = { on: new Set(CATS.map(c => c.key)), sel: 0, labels: true, spin: false };
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const catOf = k => CATS.find(c => c.key === k);
+
+const VIEWS = {
+  default: { eye: { x: 1.15, y: -1.65, z: 0.9 }, up: { x: 0, y: 0, z: 1 } },
+  xy: { eye: { x: 0.001, y: 0, z: 2.6 }, up: { x: 0, y: 1, z: 0 } },
+  xz: { eye: { x: 0, y: -2.6, z: 0.001 }, up: { x: 0, y: 0, z: 1 } },
+  yz: { eye: { x: 2.6, y: 0, z: 0.001 }, up: { x: 0, y: 0, z: 1 } }
+};
+let camera = JSON.parse(JSON.stringify(VIEWS.default));
+
+function axis(a, range, n) {
+  return {
+    title: { text: a.title + "（低 → 高）", font: { size: 19, family: css("--display"), color: css("--ink") } },
+    tickvals: Array.from({ length: n }, (_, i) => i + 1), ticktext: a.ticks,
+    tickfont: { size: 15, family: css("--body"), color: css("--muted") },
+    range, gridcolor: css("--grid"), zeroline: false, showbackground: true,
+    backgroundcolor: css("--bg"), showspikes: false, linecolor: css("--grid")
+  };
+}
+
+function traces() {
+  return CATS.filter(c => state.on.has(c.key)).map(c => {
+    const pts = DATA.filter(d => d.cat === c.key);
+    const col = css(c.token);
+    return {
+      type: "scatter3d", name: c.label,
+      mode: state.labels ? "markers+text" : "markers",
+      x: pts.map(d => d.px), y: pts.map(d => d.py), z: pts.map(d => d.pz),
+      text: pts.map(d => d.label), customdata: pts.map(d => d.i),
+      textposition: pts.map(d => d.tp),
+      textfont: { size: 15, family: css("--body"), color: css("--ink") },
+      marker: {
+        size: pts.map(d => d.i === state.sel ? 15 : 10), color: col, opacity: 0.95,
+        line: { width: pts.map(d => d.i === state.sel ? 4 : 0), color: css("--ink") }
+      },
+      hovertemplate: pts.map(d =>
+        `<b>${d.name}</b><br>${AX.X.title}：${AX.X.ticks[d.x - 1]}<br>${AX.Y.title}：${AX.Y.ticks[d.y - 1]}<br>${AX.Z.title}：${AX.Z.ticks[d.z - 1]}<extra></extra>`),
+      hoverlabel: { font: { size: 16, family: css("--body"), color: css("--ink") }, bgcolor: css("--surface"), bordercolor: col }
+    };
+  });
+}
+
+function layout() {
+  return {
+    paper_bgcolor: css("--surface"), font: { family: css("--body"), color: css("--ink") },
+    margin: { l: 0, r: 0, t: 0, b: 0 }, showlegend: false, uirevision: "keep",
+    scene: {
+      xaxis: axis(AX.X, [0.7, 4.3], 4), yaxis: axis(AX.Y, [0.7, 3.3], 3), zaxis: axis(AX.Z, [0.7, 3.3], 3),
+      aspectmode: "manual", aspectratio: { x: 1.3, y: 1, z: 0.9 }, camera
+    },
+    hoverlabel: { font: { size: 16 } }
+  };
+}
+
+const plotEl = document.getElementById("plot");
+let ready = false;
+function draw() {
+  if (!window.Plotly) { plotEl.innerHTML = '<p class="hint" style="padding:24px">三维绘图库未能加载，请刷新页面重试。</p>'; return; }
+  const lay = layout();
+  if (!ready) {
+    Plotly.newPlot(plotEl, traces(), lay, { responsive: true, displaylogo: false, modeBarButtonsToRemove: ["toImage"] });
+    plotEl.on("plotly_click", e => { const p = e.points && e.points[0]; if (p) select(p.customdata); });
+    plotEl.on("plotly_relayout", e => { if (e["scene.camera"]) camera = e["scene.camera"]; });
+    ready = true;
+  } else {
+    Plotly.react(plotEl, traces(), lay);
+  }
+}
+
+function renderCats() {
+  const box = document.getElementById("cats");
+  box.innerHTML = "";
+  CATS.forEach(c => {
+    const b = document.createElement("button");
+    b.className = "cat"; b.id = "cat-" + c.key;
+    b.setAttribute("aria-pressed", state.on.has(c.key));
+    b.innerHTML = `<span class="dot" style="background:var(${c.token})"></span>${c.label}<span class="n">${DATA.filter(d => d.cat === c.key).length}</span>`;
+    b.onclick = () => {
+      state.on.has(c.key) ? state.on.delete(c.key) : state.on.add(c.key);
+      if (!state.on.size) state.on.add(c.key);
+      renderCats(); renderList(); draw();
+    };
+    box.appendChild(b);
+  });
+}
+
+function renderList() {
+  const box = document.getElementById("list");
+  box.innerHTML = "";
+  DATA.forEach(d => {
+    const b = document.createElement("button");
+    b.className = "item"; b.id = "item-" + d.i;
+    b.hidden = !state.on.has(d.cat);
+    b.setAttribute("aria-current", d.i === state.sel);
+    b.innerHTML = `<span class="dot" style="background:var(${catOf(d.cat).token})"></span><span>${d.name}</span><span class="xyz">${d.x}·${d.y}·${d.z}</span>`;
+    b.onclick = () => select(d.i);
+    box.appendChild(b);
+  });
+}
+
+function renderDetail() {
+  const d = DATA[state.sel], c = catOf(d.cat);
+  const row = (a, v, n) => `<div class="score"><dt>${a.title}</dt><dd>${a.ticks[v - 1]}（${v}/${n}）</dd>
+    <div class="bar">${Array.from({ length: n }, (_, k) => `<i class="${k < v ? "on" : ""}"></i>`).join("")}</div></div>`;
+  document.getElementById("detail").innerHTML = `
+    <p class="name">${d.name}</p>
+    <span class="kind"><span class="dot" style="width:12px;height:12px;border-radius:50%;background:var(${c.token})"></span>${c.label}</span>
+    <dl class="scores">${row(AX.X, d.x, 4)}${row(AX.Y, d.y, 3)}${row(AX.Z, d.z, 3)}</dl>`;
+}
+
+function select(i) {
+  state.sel = i;
+  if (!state.on.has(DATA[i].cat)) { state.on.add(DATA[i].cat); renderCats(); }
+  renderList(); renderDetail(); draw();
+}
+
+document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => {
+  stopSpin();
+  camera = JSON.parse(JSON.stringify(VIEWS[b.dataset.view]));
+  document.querySelectorAll("[data-view]").forEach(o => o.setAttribute("aria-pressed", o === b));
+  if (ready) Plotly.relayout(plotEl, { "scene.camera": camera });
+});
+const lb = document.getElementById("t-labels");
+lb.onclick = () => { state.labels = !state.labels; lb.setAttribute("aria-pressed", state.labels); draw(); };
+
+const sb = document.getElementById("t-spin");
+let raf = null, ang = 0;
+function stopSpin() { state.spin = false; sb.setAttribute("aria-pressed", false); if (raf) cancelAnimationFrame(raf); raf = null; }
+sb.onclick = () => {
+  if (state.spin) return stopSpin();
+  state.spin = true; sb.setAttribute("aria-pressed", true);
+  const e = camera.eye, r = Math.hypot(e.x, e.y) || 2; ang = Math.atan2(e.y, e.x);
+  const z = Math.abs(e.z) > 2 ? 0.9 : e.z;
+  const step = () => {
+    if (!state.spin) return;
+    ang += 0.004;
+    camera = { eye: { x: r * Math.cos(ang), y: r * Math.sin(ang), z }, up: { x: 0, y: 0, z: 1 } };
+    Plotly.relayout(plotEl, { "scene.camera": camera });
+    raf = requestAnimationFrame(step);
+  };
+  step();
+};
+if (matchMedia("(prefers-reduced-motion: reduce)").matches) sb.hidden = true;
+
+// redraw when the theme changes
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+renderCats(); renderList(); renderDetail();
+function loadScript(src) {
+  return new Promise((ok, fail) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = ok; s.onerror = fail;
+    document.head.appendChild(s);
+  });
+}
+async function ensurePlotly() {
+  if (window.Plotly) return;
+  plotEl.innerHTML = '<p class="hint" style="padding:24px">正在加载三维绘图库…</p>';
+  const backups = [
+    "https://unpkg.com/plotly.js-dist-min@2.35.2/plotly.min.js",
+    "https://cdn.jsdelivr.net/npm/plotly.js-dist@2.35.2/plotly.js"
+  ];
+  for (const src of backups) {
+    try { await loadScript(src); if (window.Plotly) { plotEl.innerHTML = ""; return; } } catch (e) {}
+  }
+}
+const fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+Promise.all([ensurePlotly(), fontsReady]).then(draw);
+</script>
+
+</body></html>
