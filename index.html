@@ -1,6 +1,9 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>植入传感器三维坐标系</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;900&family=Noto+Sans+SC:wght@400;500;700&display=swap">
@@ -68,8 +71,16 @@ h1 {
   .views { flex: none; }
   aside { min-height: 0; gap: 16px; }
   aside .panel { padding: 18px 20px 20px; gap: 12px; }
-  .cats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .cat { font-size: 16px; padding: 9px 12px; }
+  /* compact category chips so the device list keeps its room */
+  aside > .panel:first-child { gap: 10px; padding-block: 14px 16px; }
+  aside > .panel:first-child h2 { font-size: 20px; }
+  .cats { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cat { width: auto; font-size: 15px; padding: 5px 12px; gap: 8px; border-radius: 999px; }
+  .cat .dot { width: 12px; height: 12px; }
+  .cat .n { margin-left: 2px; }
+  #detail { padding-block: 16px 18px; gap: 10px; }
+  #detail .name { font-size: 22px; }
+  .scores { gap: 8px; }
   #detail { flex: none; }
   aside > .panel:last-child { flex: 1 1 0; min-height: 0; }
   .list { max-height: none; flex: 1 1 0; min-height: 0; }
@@ -118,7 +129,9 @@ h2 { font-family: var(--display); font-weight: 600; font-size: 24px; margin: 0; 
 .item[hidden] { display: none !important; }
 .note { color: var(--muted); font-size: 16px; margin: 0; max-width: 60em; }
 </style>
-
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} body{margin:0} [hidden]{display:none!important}</style>
+</head>
+<body>
 <div class="wrap">
   <header>
     <h1>生物医学植入传感器<br>三维评价坐标系</h1>
@@ -380,5 +393,5 @@ async function ensurePlotly() {
 const fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
 Promise.all([ensurePlotly(), fontsReady]).then(draw);
 </script>
-
-</body></html>
+</body>
+</html>
